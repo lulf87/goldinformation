@@ -9,8 +9,14 @@ export default {
     extend: {
       colors: {
         primary: {
-          DEFAULT: '#3B82F6',
-          600: '#2563EB',
+          DEFAULT: '#F59E0B',
+          600: '#D97706',
+        },
+        secondary: {
+          DEFAULT: '#FBBF24',
+        },
+        accent: {
+          DEFAULT: '#8B5CF6',
         },
         signal: {
           'strong-buy': '#10B981',
@@ -28,11 +34,12 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        mono: ['SF Mono', 'Roboto Mono', 'monospace'],
+        sans: ['Fira Sans', 'system-ui', 'sans-serif'],
+        mono: ['Fira Code', 'SF Mono', 'Roboto Mono', 'monospace'],
       },
       animation: {
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'spin-slow': 'spin 3s linear infinite',
       },
     },
   },
