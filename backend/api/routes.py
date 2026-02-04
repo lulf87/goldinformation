@@ -15,7 +15,9 @@ from models.schemas import (
     ChatResponse,
     LLMStats,
     MarketAnalysis,
+    MarketDepthResponse,
     MarketState,
+    OrderLevel,
     PriceResponse,
     RefreshRequest,
     RefreshResponse,
@@ -545,4 +547,54 @@ async def reset_llm_counters():
         return {"success": True, "message": "LLM counters reset successfully"}
     except Exception as e:
         logger.error(f"Error resetting LLM counters: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/market-depth", response_model=MarketDepthResponse)
+async def get_market_depth(
+    symbol: str = "PAXGUSDT",
+    limit: int = 10,
+) -> MarketDepthResponse:
+    """
+    Get market depth (order book) data from Binance for PAXG (gold-backed token)
+
+    PAXG is a gold-backed cryptocurrency where 1 PAXG = 1 troy ounce of gold.
+    This provides free real-time order book data that closely correlates with gold prices.
+
+    Args:
+        symbol: Trading pair symbol (default: PAXGUSDT)
+        limit: Number of price levels (5, 10, 20, 50, 100)
+
+    Returns:
+        Market depth data with bids, asks, and summary statistics
+    """
+    try:
+        # Validate limit
+        valid_limits = [5, 10, 20, 50, 100]
+        if limit not in valid_limits:
+            limit = 10
+
+        depth_data = data_provider.get_market_depth(symbol=symbol, limit=limit)
+
+        # Convert to response model
+        bids = [OrderLevel(price=b["price"], volume=b["volume"]) for b in depth_data["bids"]]
+        asks = [OrderLevel(price=a["price"], volume=a["volume"]) for a in depth_data["asks"]]
+
+        return MarketDepthResponse(
+            bids=bids,
+            asks=asks,
+            current_price=depth_data["current_price"],
+            best_bid=depth_data["best_bid"],
+            best_ask=depth_data["best_ask"],
+            spread=depth_data["spread"],
+            total_bid_volume=depth_data["total_bid_volume"],
+            total_ask_volume=depth_data["total_ask_volume"],
+            bid_ask_ratio=depth_data["bid_ask_ratio"],
+            data_source=depth_data["data_source"],
+            symbol=depth_data["symbol"],
+            is_simulated=depth_data.get("is_simulated", False),
+        )
+
+    except Exception as e:
+        logger.error(f"Error getting market depth: {e}")
         raise HTTPException(status_code=500, detail=str(e))

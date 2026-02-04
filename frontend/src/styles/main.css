@@ -5,6 +5,170 @@
 /* Design System Fonts - Fira Code + Fira Sans for fintech dashboard */
 @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap');
 
+/* ========================================
+   UI/UX PRO MAX - DESIGN SYSTEM TOKENS
+   ======================================== */
+
+/* CSS Custom Properties for Financial Data Visualization */
+@layer base {
+  :root {
+    /* Primary Brand Colors - Gold Theme */
+    --color-primary: #F59E0B;
+    --color-primary-light: #FBBF24;
+    --color-primary-dark: #D97706;
+
+    /* Trend Colors - Market Data */
+    --trend-up: #10B981;        /* Green - Price Increase */
+    --trend-down: #EF4444;      /* Red - Price Decrease */
+    --trend-neutral: #94A3B8;   /* Gray - No Change */
+
+    /* Signal Strength Gradients */
+    --signal-strong-buy: linear-gradient(135deg, #10B981 0%, #34D399 100%);
+    --signal-buy: linear-gradient(135deg, #34D399 0%, #6EE7B7 100%);
+    --signal-hold: linear-gradient(135deg, #94A3B8 0%, #CBD5E1 100%);
+    --signal-sell: linear-gradient(135deg, #FB923C 0%, #FBBF24 100%);
+    --signal-strong-sell: linear-gradient(135deg, #EF4444 0%, #F87171 100%);
+
+    /* Risk Level Colors */
+    --risk-low: #10B981;        /* Low Risk - Green */
+    --risk-medium: #F59E0B;     /* Medium Risk - Gold */
+    --risk-high: #EF4444;       /* High Risk - Red */
+
+    /* Data Density Background Colors */
+    --data-bg-high: rgba(15, 23, 42, 0.95);
+    --data-bg-medium: rgba(15, 23, 42, 0.85);
+    --data-bg-low: rgba(15, 23, 42, 0.70);
+
+    /* Technical Indicator Colors */
+    --indicator-ma-short: #10B981;  /* MA20 - Green */
+    --indicator-ma-mid: #F59E0B;    /* MA60 - Gold */
+    --indicator-ma-long: #3B82F6;   /* MA200 - Blue */
+    --indicator-bollinger: #8B5CF6; /* Bollinger Bands - Purple */
+
+    /* Chart Colors */
+    --chart-grid: #334155;
+    --chart-axis: #475569;
+    --chart-text: #94A3B8;
+
+    /* Animation Durations */
+    --duration-fast: 150ms;
+    --duration-normal: 200ms;
+    --duration-slow: 300ms;
+
+    /* Border Radius */
+    --radius-sm: 0.375rem;
+    --radius-md: 0.5rem;
+    --radius-lg: 0.75rem;
+    --radius-xl: 1rem;
+
+    /* Spacing Scale */
+    --space-xs: 0.25rem;
+    --space-sm: 0.5rem;
+    --space-md: 1rem;
+    --space-lg: 1.5rem;
+    --space-xl: 2rem;
+  }
+}
+
+/* ========================================
+   ANIMATIONS - Financial Data Effects
+   ======================================== */
+
+@keyframes price-flash {
+  0% {
+    background-color: transparent;
+  }
+  50% {
+    background-color: rgba(245, 158, 11, 0.2);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+@keyframes price-up-flash {
+  0% {
+    background-color: transparent;
+    color: inherit;
+  }
+  25% {
+    background-color: rgba(16, 185, 129, 0.3);
+    color: #34D399;
+  }
+  100% {
+    background-color: transparent;
+    color: inherit;
+  }
+}
+
+@keyframes price-down-flash {
+  0% {
+    background-color: transparent;
+    color: inherit;
+  }
+  25% {
+    background-color: rgba(239, 68, 68, 0.3);
+    color: #F87171;
+  }
+  100% {
+    background-color: transparent;
+    color: inherit;
+  }
+}
+
+@keyframes count-up {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+@keyframes slide-in-right {
+  0% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fade-in-up {
+  0% {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes scale-in {
+  0% {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
 /* Base styles */
 @layer base {
   * {
@@ -317,4 +481,205 @@
   .z-tooltip {
     z-index: 50;
   }
+
+  /* ========================================
+     ANIMATION UTILITY CLASSES
+     ======================================== */
+
+  /* Price update animations */
+  .price-update {
+    animation: price-flash 0.5s ease-out;
+  }
+
+  .price-up {
+    animation: price-up-flash 0.6s ease-out;
+  }
+
+  .price-down {
+    animation: price-down-flash 0.6s ease-out;
+  }
+
+  /* Count up animation */
+  .count-up {
+    animation: count-up 0.4s ease-out;
+  }
+
+  /* Fade in animations */
+  .fade-in-up {
+    animation: fade-in-up 0.4s ease-out;
+  }
+
+  .scale-in {
+    animation: scale-in 0.3s ease-out;
+  }
+
+  .slide-in-right {
+    animation: slide-in-right 0.3s ease-out;
+  }
+
+  /* Shimmer loading effect */
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      rgba(51, 65, 85, 0.1) 0%,
+      rgba(51, 65, 85, 0.2) 50%,
+      rgba(51, 65, 85, 0.1) 100%
+    );
+    background-size: 1000px 100%;
+    animation: shimmer 2s infinite;
+  }
+
+  /* Gradient borders */
+  .gradient-border-gold {
+    position: relative;
+    background: linear-gradient(white, white) padding-box,
+                linear-gradient(135deg, #F59E0B, #FBBF24) border-box;
+    border: 2px solid transparent;
+  }
+
+  .gradient-border-success {
+    position: relative;
+    background: linear-gradient(white, white) padding-box,
+                linear-gradient(135deg, #10B981, #34D399) border-box;
+    border: 2px solid transparent;
+  }
+
+  .gradient-border-danger {
+    position: relative;
+    background: linear-gradient(white, white) padding-box,
+                linear-gradient(135deg, #EF4444, #F87171) border-box;
+    border: 2px solid transparent;
+  }
+
+  /* Signal strength badges with gradients */
+  .signal-gradient-strong-buy {
+    background: var(--signal-strong-buy);
+  }
+
+  .signal-gradient-buy {
+    background: var(--signal-buy);
+  }
+
+  .signal-gradient-hold {
+    background: var(--signal-hold);
+  }
+
+  .signal-gradient-sell {
+    background: var(--signal-sell);
+  }
+
+  .signal-gradient-strong-sell {
+    background: var(--signal-strong-sell);
+  }
+
+  /* Glow effects */
+  .glow-gold {
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.3);
+  }
+
+  .glow-green {
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+  }
+
+  .glow-red {
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+  }
+
+  /* Data density backgrounds */
+  .data-density-high {
+    background-color: var(--data-bg-high);
+  }
+
+  .data-density-medium {
+    background-color: var(--data-bg-medium);
+  }
+
+  .data-density-low {
+    background-color: var(--data-bg-low);
+  }
+
+  /* Trend text colors using CSS variables */
+  .text-trend-up {
+    color: var(--trend-up);
+  }
+
+  .text-trend-down {
+    color: var(--trend-down);
+  }
+
+  .text-trend-neutral {
+    color: var(--trend-neutral);
+  }
+
+  /* Risk level indicators */
+  .risk-low {
+    color: var(--risk-low);
+    border-color: var(--risk-low);
+  }
+
+  .risk-medium {
+    color: var(--risk-medium);
+    border-color: var(--risk-medium);
+  }
+
+  .risk-high {
+    color: var(--risk-high);
+    border-color: var(--risk-high);
+  }
+
+  /* Technical indicator colors */
+  .indicator-ma-short {
+    color: var(--indicator-ma-short);
+  }
+
+  .indicator-ma-mid {
+    color: var(--indicator-ma-mid);
+  }
+
+  .indicator-ma-long {
+    color: var(--indicator-ma-long);
+  }
+
+  .indicator-bollinger {
+    color: var(--indicator-bollinger);
+  }
+
+  /* Improved skeleton loading with shimmer */
+  .skeleton-shimmer {
+    @apply bg-slate-700/50 rounded relative overflow-hidden;
+  }
+
+  .skeleton-shimmer::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.05),
+      transparent
+    );
+    animation: shimmer 1.5s infinite;
+  }
+
+  /* Card hover lift effect */
+  .card-lift {
+    transition: transform var(--duration-normal) ease-out,
+                box-shadow var(--duration-normal) ease-out;
+  }
+
+  .card-lift:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  }
+
+  /* Staggered animation delays for lists */
+  .stagger-1 { animation-delay: 0.1s; }
+  .stagger-2 { animation-delay: 0.2s; }
+  .stagger-3 { animation-delay: 0.3s; }
+  .stagger-4 { animation-delay: 0.4s; }
+  .stagger-5 { animation-delay: 0.5s; }
 }

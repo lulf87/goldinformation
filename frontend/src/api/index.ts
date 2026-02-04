@@ -91,6 +91,26 @@ export interface ChartData {
   key_levels: Record<string, number>
 }
 
+export interface OrderLevel {
+  price: number
+  volume: number
+}
+
+export interface MarketDepthResponse {
+  bids: OrderLevel[]
+  asks: OrderLevel[]
+  current_price: number
+  best_bid: number
+  best_ask: number
+  spread: number
+  total_bid_volume: number
+  total_ask_volume: number
+  bid_ask_ratio: number
+  data_source: string
+  symbol: string
+  is_simulated: boolean
+}
+
 // API Functions
 export const apiAnalysis = {
   // Get market analysis
@@ -128,6 +148,14 @@ export const apiAnalysis = {
   // Chat query
   sendQuery: async (question: string): Promise<{ answer: string }> => {
     const response = await api.post('/chat', { question })
+    return response.data
+  },
+
+  // Get market depth (order book) data
+  getMarketDepth: async (symbol = 'PAXGUSDT', limit = 10): Promise<MarketDepthResponse> => {
+    const response = await api.get<MarketDepthResponse>('/market-depth', {
+      params: { symbol, limit },
+    })
     return response.data
   },
 }

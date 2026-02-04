@@ -102,19 +102,28 @@
           </button>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-          <div class="bg-slate-700/30 rounded-lg p-4 border border-slate-600/30">
+          <div class="bg-slate-700/30 rounded-lg p-4 border border-slate-600/30 transition-all duration-200"
+               :class="{ 'price-update': priceJustUpdated }">
             <p class="kpi-label">当前价格</p>
             <p class="kpi-value mono-number mt-2 text-[#F59E0B]">
               ${{ store.analysis.current_price.toFixed(2) }}
             </p>
           </div>
-          <div class="bg-slate-700/30 rounded-lg p-4 border border-slate-600/30">
+          <div class="bg-slate-700/30 rounded-lg p-4 border border-slate-600/30 transition-all duration-200"
+               :class="[
+                 priceJustUpdated ? 'price-update' : '',
+                 store.analysis.price_change >= 0 ? 'price-up' : 'price-down'
+               ]">
             <p class="kpi-label">价格变化</p>
             <p class="kpi-value mono-number mt-2" :class="store.priceChangeClass">
               {{ store.priceChangeSign }}${{ Math.abs(store.analysis.price_change).toFixed(2) }}
             </p>
           </div>
-          <div class="bg-slate-700/30 rounded-lg p-4 border border-slate-600/30">
+          <div class="bg-slate-700/30 rounded-lg p-4 border border-slate-600/30 transition-all duration-200"
+               :class="[
+                 priceJustUpdated ? 'price-update' : '',
+                 store.analysis.price_change_pct >= 0 ? 'price-up' : 'price-down'
+               ]">
             <p class="kpi-label">涨跌幅</p>
             <p class="kpi-value mono-number mt-2" :class="store.priceChangeClass">
               {{ store.priceChangeSign }}{{ Math.abs(store.analysis.price_change_pct).toFixed(2) }}%
@@ -148,6 +157,12 @@
         :period="store.analysisPeriod"
         @update:period="handlePeriodChange"
       />
+
+      <!-- Market Depth and Price Alert -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <MarketDepth />
+        <PriceAlert />
+      </div>
 
       <!-- Key Levels -->
       <section class="card">
@@ -448,6 +463,8 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useAnalysisStore } from '@/stores/analysis'
 import PriceChart from '@/components/PriceChart.vue'
+import MarketDepth from '@/components/MarketDepth.vue'
+import PriceAlert from '@/components/PriceAlert.vue'
 
 const store = useAnalysisStore()
 
@@ -456,6 +473,10 @@ const expandedNews = ref<Set<number>>(new Set())
 
 // Price refresh state (for button loading)
 const priceRefreshing = ref(false)
+
+// Price update animation state
+const priceJustUpdated = ref(false)
+let priceAnimationTimer: ReturnType<typeof setTimeout> | null = null
 
 // Auto-refresh timer
 let priceRefreshTimer: ReturnType<typeof setInterval> | null = null
@@ -582,9 +603,27 @@ async function handlePriceRefresh() {
   priceRefreshing.value = true
   try {
     await store.fetchPriceOnly()
+    // 触发价格更新动画
+    triggerPriceAnimation()
   } finally {
     priceRefreshing.value = false
   }
+}
+
+// 触发价格更新动画
+function triggerPriceAnimation() {
+  // 清除之前的定时器
+  if (priceAnimationTimer) {
+    clearTimeout(priceAnimationTimer)
+  }
+
+  // 触发动画
+  priceJustUpdated.value = true
+
+  // 600ms 后移除动画类(匹配动画时长)
+  priceAnimationTimer = setTimeout(() => {
+    priceJustUpdated.value = false
+  }, 600)
 }
 
 async function handlePeriodChange(period: string) {
@@ -597,8 +636,10 @@ function startPriceAutoRefresh() {
   store.fetchPriceOnly()
 
   // 每10秒刷新一次金价
-  priceRefreshTimer = setInterval(() => {
-    store.fetchPriceOnly()
+  priceRefreshTimer = setInterval(async () => {
+    await store.fetchPriceOnly()
+    // 触发价格更新动画
+    triggerPriceAnimation()
   }, 10000)  // 10秒
 }
 

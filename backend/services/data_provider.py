@@ -492,5 +492,95 @@ class DataProvider:
         return news_items
 
 
+    def get_market_depth(self, symbol: str = "PAXGUSDT", limit: int = 10) -> dict:
+        """
+        Get market depth (order book) data from Binance for PAXG (gold-backed token)
+
+        PAXG is a gold-backed cryptocurrency where 1 PAXG = 1 troy ounce of gold.
+        This provides free real-time order book data that closely correlates with gold prices.
+
+        Args:
+            symbol: Trading pair symbol (default: PAXGUSDT)
+            limit: Number of price levels to fetch (5, 10, 20, 50, 100, 500, 1000, 5000)
+
+        Returns:
+            Dict with:
+            - bids: List of buy orders [{price, volume}, ...]
+            - asks: List of sell orders [{price, volume}, ...]
+            - current_price: Current market price
+            - best_bid: Best bid price
+            - best_ask: Best ask price
+            - spread: Bid-ask spread
+            - data_source: Data source identifier
+        """
+        try:
+            # Binance API endpoint for order book
+            url = "https://api.binance.com/api/v3/depth"
+            params = {"symbol": symbol, "limit": limit}
+
+            response = requests.get(url, params=params, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+
+            # Parse bids (buy orders) - sorted by price descending
+            bids = [
+                {"price": float(item[0]), "volume": float(item[1])}
+                for item in data.get("bids", [])
+            ]
+
+            # Parse asks (sell orders) - sorted by price ascending
+            asks = [
+                {"price": float(item[0]), "volume": float(item[1])}
+                for item in data.get("asks", [])
+            ]
+
+            # Calculate best prices and current price
+            best_bid = bids[0]["price"] if bids else 0
+            best_ask = asks[0]["price"] if asks else 0
+            current_price = (best_bid + best_ask) / 2 if best_bid and best_ask else 0
+            spread = best_ask - best_bid if best_bid and best_ask else 0
+
+            # Calculate total volumes
+            total_bid_volume = sum(b["volume"] for b in bids)
+            total_ask_volume = sum(a["volume"] for a in asks)
+            bid_ask_ratio = total_bid_volume / total_ask_volume if total_ask_volume > 0 else 0
+
+            logger.info(f"Fetched market depth for {symbol}: {len(bids)} bids, {len(asks)} asks")
+
+            return {
+                "bids": bids,
+                "asks": asks,
+                "current_price": round(current_price, 2),
+                "best_bid": best_bid,
+                "best_ask": best_ask,
+                "spread": round(spread, 2),
+                "total_bid_volume": round(total_bid_volume, 4),
+                "total_ask_volume": round(total_ask_volume, 4),
+                "bid_ask_ratio": round(bid_ask_ratio, 4),
+                "data_source": "Binance (PAXG)",
+                "symbol": symbol,
+                "is_simulated": False,
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to fetch market depth from Binance: {e}")
+            # Return empty data with error flag
+            return {
+                "bids": [],
+                "asks": [],
+                "current_price": 0,
+                "best_bid": 0,
+                "best_ask": 0,
+                "spread": 0,
+                "total_bid_volume": 0,
+                "total_ask_volume": 0,
+                "bid_ask_ratio": 0,
+                "data_source": "Binance (PAXG)",
+                "symbol": symbol,
+                "is_simulated": True,
+                "error": str(e),
+            }
+
+
 # Singleton instance
 data_provider = DataProvider()

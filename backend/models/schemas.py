@@ -226,3 +226,52 @@ class LLMStats(BaseModel):
     daily_limit: int
     chat_calls: int
     remaining_calls: int
+
+
+# ==================== Market Depth (Order Book) ====================
+
+
+class OrderLevel(BaseModel):
+    """Single order level in order book"""
+    price: float
+    volume: float
+
+
+class MarketDepthResponse(BaseModel):
+    """Market depth (order book) response"""
+    bids: list[OrderLevel] = Field(default_factory=list, description="买单列表")
+    asks: list[OrderLevel] = Field(default_factory=list, description="卖单列表")
+    current_price: float = Field(description="当前价格")
+    best_bid: float = Field(description="最优买价")
+    best_ask: float = Field(description="最优卖价")
+    spread: float = Field(description="买卖价差")
+    total_bid_volume: float = Field(description="买单总量")
+    total_ask_volume: float = Field(description="卖单总量")
+    bid_ask_ratio: float = Field(description="买卖比")
+    data_source: str = Field(description="数据来源")
+    symbol: str = Field(description="交易对")
+    is_simulated: bool = Field(default=False, description="是否为模拟数据")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "bids": [
+                    {"price": 2745.50, "volume": 1.5},
+                    {"price": 2745.00, "volume": 2.3},
+                ],
+                "asks": [
+                    {"price": 2746.00, "volume": 1.2},
+                    {"price": 2746.50, "volume": 1.8},
+                ],
+                "current_price": 2745.75,
+                "best_bid": 2745.50,
+                "best_ask": 2746.00,
+                "spread": 0.50,
+                "total_bid_volume": 15.5,
+                "total_ask_volume": 12.3,
+                "bid_ask_ratio": 1.26,
+                "data_source": "Binance (PAXG)",
+                "symbol": "PAXGUSDT",
+                "is_simulated": False,
+            }
+        }
