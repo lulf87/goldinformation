@@ -1,36 +1,33 @@
 <template>
-  <div class="card">
-    <div class="flex items-center justify-between mb-4">
-      <h2 class="text-lg font-semibold text-slate-200">价格趋势与关键位</h2>
+  <div class="price-chart-card">
+    <div class="chart-header">
+      <h2 class="chart-title">价格趋势与关键位</h2>
       <!-- 周期切换按钮 -->
-      <div class="flex gap-2">
+      <div class="period-buttons">
         <button
           v-for="p in periods"
           :key="p.value"
           @click="selectPeriod(p.value)"
           :class="[
-            'px-3 py-1 text-xs rounded transition-colors',
-            currentPeriod === p.value
-              ? 'bg-primary text-white'
-              : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+            'period-button',
+            currentPeriod === p.value ? 'period-button-active' : 'period-button-inactive'
           ]"
         >
           {{ p.label }}
         </button>
       </div>
     </div>
-    <div v-if="loading" class="flex items-center justify-center h-96">
-      <div class="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+    <div v-if="loading" class="chart-loading">
+      <div class="loading-spinner"></div>
     </div>
-    <div v-else-if="error" class="text-center py-12">
-      <p class="text-red-400">{{ error }}</p>
+    <div v-else-if="error" class="chart-error">
+      <p class="error-text">{{ error }}</p>
     </div>
     <v-chart
       v-else
       :option="chartOption"
       :autoresize="true"
-      class="w-full"
-      style="height: 400px"
+      class="chart-container"
     />
   </div>
 </template>
@@ -250,3 +247,138 @@ watch(
   }
 )
 </script>
+
+<style scoped>
+/* Card */
+.price-chart-card {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+}
+
+/* Header */
+.chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-md);
+}
+
+.chart-title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.period-buttons {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.period-button {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: var(--text-xs);
+  border-radius: var(--radius-sm);
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-base) var(--ease-default);
+}
+
+.period-button-active {
+  background: var(--color-primary);
+  color: white;
+}
+
+.period-button-active:hover {
+  background: var(--color-primary-hover);
+}
+
+.period-button-inactive {
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+}
+
+.period-button-inactive:hover {
+  background: var(--color-border);
+}
+
+/* Loading State */
+.chart-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24rem;
+}
+
+.loading-spinner {
+  position: relative;
+  width: 48px;
+  height: 48px;
+}
+
+.loading-spinner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 4px solid rgba(59, 130, 246, 0.2);
+  border-radius: 50%;
+}
+
+.loading-spinner::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 4px solid transparent;
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Error State */
+.chart-error {
+  text-align: center;
+  padding: var(--spacing-xl) 0;
+}
+
+.error-text {
+  color: var(--color-error);
+  margin: 0;
+}
+
+/* Chart Container */
+.chart-container {
+  width: 100%;
+  height: 400px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .chart-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+  }
+
+  .period-buttons {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .period-button {
+    flex: 1;
+    padding: var(--spacing-xs);
+  }
+
+  .chart-container {
+    height: 300px;
+  }
+}
+</style>

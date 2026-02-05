@@ -1,5 +1,5 @@
 <template>
-  <div id="app" class="min-h-screen bg-slate-900">
+  <div id="app" class="app-container">
     <router-view />
   </div>
 </template>
@@ -11,3 +11,11 @@ onMounted(() => {
   document.title = '黄金交易 Agent - Gold Trading Agent'
 })
 </script>
+
+<style>
+.app-container {
+  min-height: 100vh;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+</style>

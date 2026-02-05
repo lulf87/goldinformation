@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const api = axios.create({
+export const api = axios.create({
   baseURL: '/api/v1',
   timeout: 30000,
   headers: {
@@ -8,23 +8,63 @@ const api = axios.create({
   },
 })
 
-// Types
-export type MarketState = 'trend' | 'range' | 'unclear'
+// Types - 增强版
+export type MarketState = 
+  | 'strong_bull'      // 强势上涨
+  | 'bull_trend'       // 上涨趋势
+  | 'range'            // 区间震荡
+  | 'bear_trend'       // 下跌趋势
+  | 'strong_bear'      // 强势下跌
+  | 'high_volatility'  // 高波动
+  | 'unclear'          // 不清晰
+  | 'trend'            // 兼容旧代码
+
 export type SignalLevel = 'strong_buy' | 'buy' | 'hold' | 'sell' | 'strong_sell'
 export type PositionLevel = 'low' | 'medium' | 'high'
 
 export interface TechnicalIndicators {
-  ma_short?: number
-  ma_mid?: number
-  trend_dir?: string
-  trend_strength?: string
+  // 移动平均线
+  ma_short?: number      // 短期均线 (20)
+  ma_mid?: number        // 中期均线 (60)
+  ema_short?: number     // 短期EMA (12)
+  ema_long?: number      // 长期EMA (26)
+  
+  // 趋势指标
+  trend_dir?: string     // 趋势方向 (up/down/neutral)
+  trend_strength?: string  // 趋势强度 (weak/medium/strong)
+  adx?: number           // ADX 趋势强度指标 (0-100)
+  plus_di?: number       // +DI 方向指标
+  minus_di?: number      // -DI 方向指标
+  
+  // 动量指标
+  rsi?: number           // RSI 相对强弱指数 (0-100)
+  rsi_state?: string     // RSI 状态 (oversold/neutral/overbought)
+  macd?: number          // MACD 线
+  macd_signal?: number   // MACD 信号线
+  macd_hist?: number     // MACD 柱状图
+  macd_cross?: string    // MACD 交叉 (golden/dead/none)
+  
+  // 波动指标
+  atr?: number           // ATR 波动度
+  vol_state?: string     // 波动状态 (low/medium/high)
+  bb_upper?: number      // 布林带上轨
+  bb_middle?: number     // 布林带中轨
+  bb_lower?: number      // 布林带下轨
+  bb_width?: number      // 布林带宽度 (%)
+  bb_position?: string   // 价格在布林带位置 (above/upper/middle/lower/below)
+  
+  // 支撑阻力
   support_level?: number
   resistance_level?: number
   range_high?: number
   range_low?: number
   range_mid?: number
-  atr?: number
-  vol_state?: string
+}
+
+// 因子详情
+export interface FactorDetail {
+  score: number
+  weight: number
 }
 
 export interface TradingSignal {
@@ -35,6 +75,15 @@ export interface TradingSignal {
   target_zone?: number
   position_level: PositionLevel
   risk_warning?: string
+  
+  // 新增：置信度和评分
+  confidence?: number           // 信号置信度 (0-100%)
+  technical_score?: number      // 技术面评分 (-100 到 +100)
+  sentiment_score?: number      // 情感面评分 (-100 到 +100)
+  composite_score?: number      // 综合评分 (-100 到 +100)
+  
+  // 新增：因子详情
+  factor_details?: Record<string, FactorDetail>
 }
 
 export interface MarketAnalysis {
@@ -65,6 +114,8 @@ export interface NewsItem {
   source?: string  // 来源媒体
   url?: string  // 原文链接
   sentiment?: string  // 情绪倾向(利多/利空/中性)
+  reason?: string  // 影响分析
+  relevance?: string  // 相关性(高/中/低)
 }
 
 export interface PriceResponse {
@@ -109,6 +160,22 @@ export interface MarketDepthResponse {
   data_source: string
   symbol: string
   is_simulated: boolean
+}
+
+export interface GoldPriceItem {
+  price: number
+  change?: number
+  change_pct?: number
+  update_time: string
+  data_source: string
+  is_available: boolean
+  unit: string
+  error?: string
+}
+
+export interface GoldPricesResponse {
+  london_gold: GoldPriceItem
+  au9999: GoldPriceItem
 }
 
 // API Functions
@@ -156,6 +223,12 @@ export const apiAnalysis = {
     const response = await api.get<MarketDepthResponse>('/market-depth', {
       params: { symbol, limit },
     })
+    return response.data
+  },
+
+  // Get gold prices from multiple markets
+  getGoldPrices: async (): Promise<GoldPricesResponse> => {
+    const response = await api.get<GoldPricesResponse>('/gold-prices')
     return response.data
   },
 }

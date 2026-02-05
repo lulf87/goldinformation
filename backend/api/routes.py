@@ -13,6 +13,8 @@ from models.schemas import (
     ChartData,
     ChatRequest,
     ChatResponse,
+    GoldPriceItem,
+    GoldPricesResponse,
     LLMStats,
     MarketAnalysis,
     MarketDepthResponse,
@@ -74,37 +76,64 @@ async def get_analysis(
         logger.info("Calculating indicators...")
         df = indicator_calculator.calculate_all(df)
 
-        logger.info("Fetching news items...")
-        news_items = data_provider.get_news_items(symbol=settings.GOLD_SYMBOL, limit=10)
+        # Fetch more raw news for LLM filtering (or fewer if LLM is disabled)
+        raw_news_limit = 20 if llm_client.enabled else 10
+        logger.info(f"Fetching news items (limit={raw_news_limit})...")
+        raw_news_items = data_provider.get_news_items(symbol=settings.GOLD_SYMBOL, limit=raw_news_limit)
 
-        # Initialize LLM enhanced fields (must be done BEFORE any LLM calls)
+        # Initialize LLM enhanced fields
         llm_explanation = None
-        # Try to enhance news sentiment with LLM if enabled
-        if llm_client.enabled and news_items:
+        news_items = raw_news_items  # Default to keyword-filtered news
+
+        # Try to use LLM for intelligent news filtering and analysis
+        if llm_client.enabled and raw_news_items:
             try:
-                logger.info("Analyzing news sentiment with LLM...")
+                logger.info("Using LLM for intelligent news filtering and analysis...")
                 llm_payload = [
                     {"headline": item.get("title", ""), "summary": item.get("content", "")}
-                    for item in news_items
+                    for item in raw_news_items
                 ]
                 llm_news_result = await llm_client.analyze_news_sentiment(llm_payload)
-                if llm_news_result:
-                    # Update news_items with LLM analysis
-                    # LLM returns: {"items": [...], "summary": "..."}
-                    if "items" in llm_news_result:
-                        llm_items = llm_news_result["items"]
-                        if llm_items:
-                            for i, item in enumerate(llm_items):
-                                if i >= len(news_items):
-                                    break
-                                news_items[i]["sentiment"] = item.get("sentiment", "中性")
-                                # 只在 LLM 返回的 reason 有效时才覆盖（非None且非空）
-                                llm_reason = item.get("reason")
-                                if llm_reason and isinstance(llm_reason, str) and llm_reason.strip():
-                                    news_items[i]["reason"] = llm_reason.strip()
-                            logger.info(f"Enhanced {len(llm_items)} news items with LLM analysis")
+
+                if llm_news_result and "items" in llm_news_result:
+                    llm_items = llm_news_result["items"]
+                    if llm_items:
+                        # Rebuild news_items from LLM analysis (only relevant news)
+                        filtered_news = []
+                        for llm_item in llm_items:
+                            # Find original news by index or headline matching
+                            idx = llm_item.get("index", 0) - 1  # LLM uses 1-based index
+                            if 0 <= idx < len(raw_news_items):
+                                original = raw_news_items[idx].copy()
+                            else:
+                                # Fallback: match by headline
+                                headline = llm_item.get("headline", "")
+                                original = next(
+                                    (n.copy() for n in raw_news_items if n.get("title", "") == headline),
+                                    None
+                                )
+                                if not original:
+                                    continue
+
+                            # Update with LLM analysis
+                            original["sentiment"] = llm_item.get("sentiment", "中性")
+                            original["relevance"] = llm_item.get("relevance", "中")
+                            llm_reason = llm_item.get("reason")
+                            if llm_reason and isinstance(llm_reason, str) and llm_reason.strip():
+                                original["reason"] = llm_reason.strip()
+                            filtered_news.append(original)
+
+                        if filtered_news:
+                            news_items = filtered_news[:10]  # Keep top 10 relevant news
+                            logger.info(f"LLM filtered {len(raw_news_items)} → {len(news_items)} relevant news items")
+
+                            # Log key factors if available
+                            key_factors = llm_news_result.get("key_factors", [])
+                            if key_factors:
+                                logger.info(f"Key market factors: {', '.join(key_factors)}")
             except Exception as e:
-                logger.warning(f"LLM news sentiment analysis failed: {e}. Using keyword-based sentiment.")
+                logger.warning(f"LLM news analysis failed: {e}. Using keyword-based filtering.")
+                news_items = raw_news_items[:10]  # Fallback to keyword-filtered news
 
         # Fetch DXY (US Dollar Index) data
         logger.info("Fetching DXY data...")
@@ -139,13 +168,26 @@ async def get_analysis(
         # Determine market state for LLM context
         market_state = strategy_engine._determine_market_state(df)
         state_map = {
-            MarketState.TREND: "趋势模式",
-            MarketState.RANGE: "震荡模式",
+            MarketState.STRONG_BULL: "强势上涨",
+            MarketState.BULL_TREND: "上涨趋势",
+            MarketState.RANGE: "区间震荡",
+            MarketState.BEAR_TREND: "下跌趋势",
+            MarketState.STRONG_BEAR: "强势下跌",
+            MarketState.HIGH_VOLATILITY: "高波动",
             MarketState.UNCLEAR: "不清晰",
+            MarketState.TREND: "趋势模式",  # 兼容旧代码
         }
 
-        # Generate trading signal for LLM context
-        signal = strategy_engine._generate_signal(df, market_state)
+        # Generate trading signal for LLM context (with news for sentiment)
+        sentiment_score = strategy_engine._calculate_sentiment_score(news_items)
+        signal = strategy_engine._generate_signal(
+            df, 
+            market_state, 
+            news_items=news_items,
+            sentiment_score=sentiment_score,
+            dxy_change_pct=dxy_change_pct,
+            real_rate=real_rate,
+        )
 
         # Try to generate LLM-enhanced explanation if enabled
         if llm_client.enabled:
@@ -249,16 +291,16 @@ async def get_price_only() -> PriceResponse:
     try:
         import yfinance as yf
 
-        # 使用 yfinance 的 fast_info 获取实时数据（包含正确的开盘价和昨日收盘价）
+        # 使用 yfinance 的 fast_info 获取实时数据
         ticker = yf.Ticker(settings.GOLD_SYMBOL)
         info = ticker.fast_info
 
         current_price = float(info.last_price)
-        open_price = float(info.open) if info.open else current_price
+        prev_close = float(info.previous_close) if info.previous_close else current_price
 
-        # 基于今日开盘价计算涨跌（与 Yahoo Finance 网页一致）
-        price_change = current_price - open_price
-        price_change_pct = (price_change / open_price) * 100 if open_price != 0 else 0.0
+        # 基于昨日收盘价计算涨跌（金融行业标准，与伦敦金卡片保持一致）
+        price_change = current_price - prev_close
+        price_change_pct = (price_change / prev_close) * 100 if prev_close != 0 else 0.0
 
         return PriceResponse(
             success=True,
@@ -425,24 +467,32 @@ async def chat_query(request: ChatRequest) -> ChatResponse:
         # Try LLM first if enabled (for all question types)
         if llm_client.enabled:
             try:
-                # Build context for LLM
+                # Build rich context for LLM (including macro data and news)
                 latest = df.iloc[-1]
                 current_analysis_context = {
                     "market_state": analysis.market_state.value,
                     "trend_dir": latest.get("trend_dir", "neutral"),
                     "current_price": analysis.current_price,
+                    "price_change_pct": analysis.price_change_pct,
                     "signal": analysis.signal.signal_level.value,
                     "signal_reason": analysis.signal.signal_reason,
                     "support": analysis.indicators.support_level,
                     "resistance": analysis.indicators.resistance_level,
                     "risk_warning": analysis.signal.risk_warning or "无",
                     "position_level": analysis.signal.position_level.value,
+                    # Add macro data
+                    "dxy_price": analysis.dxy_price,
+                    "dxy_change_pct": analysis.dxy_change_pct,
+                    "real_rate": analysis.real_rate,
+                    "nominal_rate": analysis.nominal_rate,
+                    "inflation_rate": analysis.inflation_rate,
                 }
 
                 logger.info(f"Using LLM to answer question: {question[:50]}...")
                 llm_answer = await llm_client.answer_chat_question(
                     question=question,
                     current_analysis=current_analysis_context,
+                    news_items=news_items,  # Pass news for richer context
                 )
 
                 if llm_answer:
@@ -597,4 +647,50 @@ async def get_market_depth(
 
     except Exception as e:
         logger.error(f"Error getting market depth: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/gold-prices", response_model=GoldPricesResponse)
+async def get_gold_prices() -> GoldPricesResponse:
+    """
+    Get gold prices from multiple markets
+
+    Returns:
+    - London Gold (XAU/USD): International spot gold price (via COMEX futures)
+    - AU9999: Shanghai Gold Exchange gold price
+
+    Both prices are fetched in real-time from their respective data sources.
+    """
+    try:
+        logger.info("Fetching gold prices from multiple markets...")
+        prices_data = data_provider.get_gold_prices()
+
+        london_gold_data = prices_data["london_gold"]
+        au9999_data = prices_data["au9999"]
+
+        return GoldPricesResponse(
+            london_gold=GoldPriceItem(
+                price=london_gold_data["price"],
+                change=london_gold_data.get("change"),
+                change_pct=london_gold_data.get("change_pct"),
+                update_time=london_gold_data["update_time"],
+                data_source=london_gold_data["data_source"],
+                is_available=london_gold_data["is_available"],
+                unit=london_gold_data["unit"],
+                error=london_gold_data.get("error"),
+            ),
+            au9999=GoldPriceItem(
+                price=au9999_data["price"],
+                change=au9999_data.get("change"),
+                change_pct=au9999_data.get("change_pct"),
+                update_time=au9999_data["update_time"],
+                data_source=au9999_data["data_source"],
+                is_available=au9999_data["is_available"],
+                unit=au9999_data["unit"],
+                error=au9999_data.get("error"),
+            ),
+        )
+
+    except Exception as e:
+        logger.error(f"Error getting gold prices: {e}")
         raise HTTPException(status_code=500, detail=str(e))

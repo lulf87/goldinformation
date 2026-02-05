@@ -1,0 +1,341 @@
+# UI UX Pro Max - 黄金交易智能助手
+
+## 项目概述
+
+这是一个黄金交易分析 Dashboard，使用 Vue 3 + TypeScript + Tailwind CSS 构建。
+目标是提供专业、现代、易用的金融数据可视化界面。
+
+---
+
+## 设计系统 (Design System)
+
+### 推荐设计风格
+
+**主风格**: Glassmorphism + Dark Mode + Financial Dashboard
+- 毛玻璃效果配合深色主题
+- 专业金融仪表盘风格
+- 数据驱动、信息密集
+
+**关键词**: 专业、现代、数据驱动、金融、信任感
+
+### 配色方案
+
+| 用途 | 颜色 | 说明 |
+|------|------|------|
+| **主背景** | `#0F172A` (slate-900) | 深色背景，减少眼睛疲劳 |
+| **卡片背景** | `rgba(30, 41, 59, 0.8)` | 半透明毛玻璃效果 |
+| **主色调** | `#F59E0B` (amber-500) | 黄金色，代表金融/黄金 |
+| **上涨/利多** | `#10B981` (emerald-500) | 绿色表示正面 |
+| **下跌/利空** | `#EF4444` (red-500) | 红色表示负面 |
+| **中性** | `#64748B` (slate-500) | 灰色表示中性 |
+| **文本主色** | `#F8FAFC` (slate-50) | 高对比度白色文本 |
+| **文本次要** | `#94A3B8` (slate-400) | 次要信息 |
+
+### 字体配对
+
+**标题**: Inter / Geist Sans (现代、专业)
+**数字**: JetBrains Mono / SF Mono (等宽字体，适合数据展示)
+**正文**: Inter / system-ui (易读)
+
+### 关键效果
+
+- **毛玻璃**: `backdrop-blur-xl bg-white/5 border border-white/10`
+- **过渡动画**: `transition-all duration-200 ease-out`
+- **悬停状态**: 颜色变化 + 轻微阴影，不使用 scale 避免布局抖动
+- **数字变化**: 使用颜色渐变动画表示数值变化
+
+### 避免的反模式 (Anti-Patterns)
+
+- ❌ 不使用 emoji 作为图标 (使用 Heroicons/Lucide SVG)
+- ❌ 不使用过度华丽的渐变 (AI purple/pink gradients)
+- ❌ 不使用 scale hover 效果 (会导致布局抖动)
+- ❌ 不使用过低对比度的文本
+- ❌ 不使用过慢的动画 (>500ms)
+
+---
+
+## Vue.js + Tailwind 开发规范
+
+### 组件结构
+
+```vue
+<script setup lang="ts">
+// 1. 导入
+import { ref, computed, onMounted } from 'vue'
+
+// 2. Props & Emits
+const props = defineProps<{
+  title: string
+  value: number
+}>()
+
+// 3. 响应式状态
+const isLoading = ref(false)
+
+// 4. 计算属性
+const formattedValue = computed(() => 
+  props.value.toLocaleString()
+)
+
+// 5. 方法
+function handleClick() {
+  // ...
+}
+
+// 6. 生命周期
+onMounted(() => {
+  // ...
+})
+</script>
+
+<template>
+  <!-- 语义化 HTML -->
+</template>
+
+<style scoped>
+/* 仅在必要时使用 scoped CSS */
+</style>
+```
+
+### Tailwind 最佳实践
+
+```html
+<!-- ✅ 正确: 使用语义化类名组合 -->
+<div class="card">
+  <h2 class="card-title">标题</h2>
+</div>
+
+<!-- ✅ 正确: 响应式设计 -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+<!-- ✅ 正确: 交互状态 -->
+<button class="
+  bg-amber-500 text-white px-4 py-2 rounded-lg
+  hover:bg-amber-600 
+  focus:ring-2 focus:ring-amber-500/50 focus:outline-none
+  transition-colors duration-200
+  cursor-pointer
+">
+
+<!-- ❌ 错误: 缺少 cursor-pointer -->
+<div class="card" @click="handleClick">
+```
+
+### 数据展示规范
+
+```html
+<!-- 价格显示 -->
+<span class="font-mono text-2xl font-bold">
+  {{ price.toFixed(2) }}
+</span>
+
+<!-- 涨跌显示 -->
+<span :class="[
+  'font-mono',
+  change >= 0 ? 'text-emerald-500' : 'text-red-500'
+]">
+  {{ change >= 0 ? '+' : '' }}{{ change.toFixed(2) }}
+  ({{ changePct.toFixed(2) }}%)
+</span>
+
+<!-- 状态徽章 -->
+<span class="
+  inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+  bg-emerald-500/20 text-emerald-400
+">
+  上涨趋势
+</span>
+```
+
+---
+
+## 图标使用规范
+
+### 推荐图标库
+
+1. **Heroicons** (Vue): `@heroicons/vue`
+2. **Lucide** (通用): `lucide-vue-next`
+
+### 使用方式
+
+```vue
+<script setup>
+import { ChartBarIcon, ArrowTrendingUpIcon } from '@heroicons/vue/24/outline'
+</script>
+
+<template>
+  <ChartBarIcon class="w-5 h-5 text-amber-500" />
+</template>
+```
+
+### 禁止使用
+
+```html
+<!-- ❌ 禁止: 使用 emoji 作为图标 -->
+<span>📈</span>
+<span>🔔</span>
+
+<!-- ✅ 正确: 使用 SVG 图标 -->
+<ArrowTrendingUpIcon class="w-5 h-5" />
+```
+
+---
+
+## 交互设计规范
+
+### 可点击元素
+
+所有可点击元素必须:
+1. 添加 `cursor-pointer`
+2. 提供悬停反馈
+3. 有平滑过渡
+
+```html
+<div class="
+  cursor-pointer
+  hover:bg-white/10
+  transition-colors duration-200
+" @click="handleClick">
+```
+
+### 加载状态
+
+```html
+<!-- 骨架屏 -->
+<div class="animate-pulse bg-slate-700/50 rounded h-8 w-24"></div>
+
+<!-- 加载指示器 -->
+<div class="flex items-center gap-2">
+  <div class="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+  <span>加载中...</span>
+</div>
+```
+
+### 空状态
+
+```html
+<div class="text-center py-12">
+  <DocumentIcon class="w-12 h-12 mx-auto text-slate-600" />
+  <p class="mt-2 text-slate-400">暂无数据</p>
+</div>
+```
+
+---
+
+## 响应式设计
+
+### 断点
+
+| 断点 | 宽度 | 用途 |
+|------|------|------|
+| 默认 | < 640px | 手机 |
+| `sm` | ≥ 640px | 大手机 |
+| `md` | ≥ 768px | 平板 |
+| `lg` | ≥ 1024px | 笔记本 |
+| `xl` | ≥ 1280px | 桌面 |
+| `2xl` | ≥ 1536px | 大屏 |
+
+### 网格布局
+
+```html
+<!-- 自适应网格 -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+```
+
+---
+
+## 无障碍 (Accessibility)
+
+### 必须遵守
+
+1. 所有图片有 `alt` 属性
+2. 表单输入有关联的 `label`
+3. 颜色不是唯一的信息传达方式
+4. 支持键盘导航
+5. 尊重 `prefers-reduced-motion`
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+```
+
+---
+
+## 交付前检查清单
+
+### 视觉质量
+- [ ] 无 emoji 图标 (使用 SVG)
+- [ ] 图标来自统一图标库
+- [ ] 悬停状态无布局抖动
+- [ ] 颜色对比度符合 WCAG AA
+
+### 交互
+- [ ] 所有可点击元素有 `cursor-pointer`
+- [ ] 悬停状态有明显反馈
+- [ ] 过渡动画 150-300ms
+- [ ] 支持键盘焦点导航
+
+### 布局
+- [ ] 固定导航栏有内容偏移
+- [ ] 无横向滚动 (移动端)
+- [ ] 响应式: 375px, 768px, 1024px, 1440px
+
+### 性能
+- [ ] 大列表使用虚拟滚动
+- [ ] 图片延迟加载
+- [ ] 避免不必要的重渲染
+
+---
+
+## 金融 Dashboard 特定规范
+
+### 数字格式化
+
+```typescript
+// 价格格式化
+const formatPrice = (value: number, decimals = 2) => 
+  value.toLocaleString('zh-CN', { 
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals 
+  })
+
+// 百分比格式化
+const formatPercent = (value: number) => 
+  `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`
+
+// 大数字格式化
+const formatLargeNumber = (value: number) => {
+  if (value >= 1e9) return `${(value / 1e9).toFixed(1)}B`
+  if (value >= 1e6) return `${(value / 1e6).toFixed(1)}M`
+  if (value >= 1e3) return `${(value / 1e3).toFixed(1)}K`
+  return value.toString()
+}
+```
+
+### 图表颜色
+
+```typescript
+const chartColors = {
+  primary: '#F59E0B',    // 黄金色
+  positive: '#10B981',   // 上涨
+  negative: '#EF4444',   // 下跌
+  neutral: '#64748B',    // 中性
+  grid: '#334155',       // 网格线
+  text: '#94A3B8',       // 图表文字
+}
+```
+
+### 实时数据更新
+
+```typescript
+// 价格变化动画
+const priceClass = computed(() => {
+  if (priceChange.value > 0) return 'text-emerald-500 animate-pulse-once'
+  if (priceChange.value < 0) return 'text-red-500 animate-pulse-once'
+  return 'text-slate-400'
+})
+```

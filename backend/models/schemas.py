@@ -9,10 +9,17 @@ from pydantic import BaseModel, Field
 
 
 class MarketState(str, Enum):
-    """Market state enumeration"""
-    TREND = "trend"  # 趋势模式
-    RANGE = "range"  # 震荡模式
-    UNCLEAR = "unclear"  # 不清晰
+    """Market state enumeration - 6 种市场状态"""
+    STRONG_BULL = "strong_bull"  # 强势上涨
+    BULL_TREND = "bull_trend"    # 上涨趋势
+    RANGE = "range"              # 区间震荡
+    BEAR_TREND = "bear_trend"    # 下跌趋势
+    STRONG_BEAR = "strong_bear"  # 强势下跌
+    HIGH_VOLATILITY = "high_volatility"  # 高波动
+    UNCLEAR = "unclear"          # 不清晰
+    
+    # 兼容旧代码的别名
+    TREND = "trend"  # 将在信号生成中映射到 BULL_TREND 或 BEAR_TREND
 
 
 class SignalLevel(str, Enum):
@@ -60,25 +67,50 @@ class PriceData(BaseModel):
 
 
 class TechnicalIndicators(BaseModel):
-    """Technical analysis indicators"""
+    """Technical analysis indicators - 增强版"""
+    # 移动平均线
     ma_short: Optional[float] = None  # 短期均线 (20)
     ma_mid: Optional[float] = None  # 中期均线 (60)
-    trend_dir: Optional[str] = None  # 趋势方向
-    trend_strength: Optional[str] = None  # 趋势强度
+    ema_short: Optional[float] = None  # 短期EMA (12)
+    ema_long: Optional[float] = None  # 长期EMA (26)
+    
+    # 趋势指标
+    trend_dir: Optional[str] = None  # 趋势方向 (up/down/neutral)
+    trend_strength: Optional[str] = None  # 趋势强度 (weak/medium/strong)
+    adx: Optional[float] = None  # ADX 趋势强度指标 (0-100)
+    plus_di: Optional[float] = None  # +DI 方向指标
+    minus_di: Optional[float] = None  # -DI 方向指标
+    
+    # 动量指标
+    rsi: Optional[float] = None  # RSI 相对强弱指数 (0-100)
+    rsi_state: Optional[str] = None  # RSI 状态 (oversold/neutral/overbought)
+    macd: Optional[float] = None  # MACD 线
+    macd_signal: Optional[float] = None  # MACD 信号线
+    macd_hist: Optional[float] = None  # MACD 柱状图
+    macd_cross: Optional[str] = None  # MACD 交叉 (golden/dead/none)
+    
+    # 波动指标
+    atr: Optional[float] = None  # ATR 波动度
+    vol_state: Optional[str] = None  # 波动状态 (low/medium/high)
+    bb_upper: Optional[float] = None  # 布林带上轨
+    bb_middle: Optional[float] = None  # 布林带中轨
+    bb_lower: Optional[float] = None  # 布林带下轨
+    bb_width: Optional[float] = None  # 布林带宽度 (%)
+    bb_position: Optional[str] = None  # 价格在布林带位置 (above/upper/middle/lower/below)
+    
+    # 支撑阻力
     support_level: Optional[float] = None  # 支撑位
     resistance_level: Optional[float] = None  # 阻力位
     range_high: Optional[float] = None  # 区间上沿
     range_low: Optional[float] = None  # 区间下沿
     range_mid: Optional[float] = None  # 区间中轴
-    atr: Optional[float] = None  # 波动度
-    vol_state: Optional[str] = None  # 波动状态
 
 
 # ==================== Trading Signal ====================
 
 
 class TradingSignal(BaseModel):
-    """Trading signal output"""
+    """Trading signal output - 增强版"""
     signal_level: SignalLevel
     signal_reason: str  # 信号解释
     entry_zone: Optional[float] = None  # 建议入场区
@@ -86,6 +118,15 @@ class TradingSignal(BaseModel):
     target_zone: Optional[float] = None  # 建议目标区
     position_level: PositionLevel  # 仓位建议
     risk_warning: Optional[str] = None  # 风险提示
+    
+    # 新增：置信度和评分
+    confidence: Optional[float] = None  # 信号置信度 (0-100%)
+    technical_score: Optional[float] = None  # 技术面评分 (-100 到 +100)
+    sentiment_score: Optional[float] = None  # 情感面评分 (-100 到 +100)
+    composite_score: Optional[float] = None  # 综合评分 (-100 到 +100)
+    
+    # 新增：因子详情
+    factor_details: Optional[dict] = None  # 各因子评分详情
 
 
 # ==================== Market Analysis ====================
@@ -100,6 +141,7 @@ class NewsItem(BaseModel):
     url: Optional[str] = None  # 原文链接
     sentiment: Optional[str] = None  # 情绪倾向(利多/利空/中性)
     reason: Optional[str] = None  # 影响解读(对黄金价格的潜在影响原因)
+    relevance: Optional[str] = None  # 相关性(高/中/低)
 
 
 class MarketAnalysis(BaseModel):
@@ -226,6 +268,49 @@ class LLMStats(BaseModel):
     daily_limit: int
     chat_calls: int
     remaining_calls: int
+
+
+# ==================== Gold Price (Multi-source) ====================
+
+
+class GoldPriceItem(BaseModel):
+    """Single gold price item from a specific market"""
+    price: float = Field(description="当前价格")
+    change: Optional[float] = Field(default=None, description="价格变化")
+    change_pct: Optional[float] = Field(default=None, description="价格变化百分比")
+    update_time: str = Field(description="更新时间")
+    data_source: str = Field(description="数据来源")
+    is_available: bool = Field(description="数据是否可用")
+    unit: str = Field(description="价格单位")
+    error: Optional[str] = Field(default=None, description="错误信息")
+
+
+class GoldPricesResponse(BaseModel):
+    """Gold prices from multiple markets"""
+    london_gold: GoldPriceItem = Field(description="伦敦金 (XAU/USD)")
+    au9999: GoldPriceItem = Field(description="上海金 (AU9999)")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "london_gold": {
+                    "price": 2745.50,
+                    "change": 12.30,
+                    "change_pct": 0.45,
+                    "update_time": "2025-01-15 14:30:00",
+                    "data_source": "COMEX (伦敦金)",
+                    "is_available": True,
+                    "unit": "美元/盎司",
+                },
+                "au9999": {
+                    "price": 615.50,
+                    "update_time": "2025年01月15日 14:30:00",
+                    "data_source": "上海黄金交易所",
+                    "is_available": True,
+                    "unit": "元/克",
+                },
+            }
+        }
 
 
 # ==================== Market Depth (Order Book) ====================

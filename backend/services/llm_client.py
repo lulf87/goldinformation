@@ -358,54 +358,89 @@ class LLMClient:
         self, news_list: list[dict]
     ) -> Optional[dict]:
         """
-        Analyze news sentiment using LLM for better semantic understanding
+        Analyze news using LLM for relevance filtering, sentiment analysis, and impact reasoning.
+
+        This is the core intelligence for news analysis:
+        1. Filter out news unrelated to gold/macro
+        2. Analyze sentiment (bullish/bearish/neutral for gold)
+        3. Explain the impact logic chain
 
         Args:
             news_list: List of news items with headline and summary
 
         Returns:
-            Dict with analyzed sentiment data, or None if LLM unavailable
+            Dict with analyzed news data, or None if LLM unavailable
         """
         if not news_list:
             return None
 
         # Build news with headline AND content/summary for comprehensive analysis
         news_entries = []
-        for i, n in enumerate(news_list[:10], 1):
+        for i, n in enumerate(news_list[:20], 1):  # Analyze more news for better filtering
             headline = n.get('headline', '').strip()
             summary = n.get('summary', '').strip()
             if headline:
                 entry = f"【新闻{i}】\n标题: {headline}"
                 if summary:
-                    entry += f"\n内容摘要: {summary}"
+                    entry += f"\n摘要: {summary[:200]}"  # Limit summary length
                 news_entries.append(entry)
 
         news_text = "\n\n".join(news_entries)
 
-        system_prompt = """你是一位资深金融新闻分析师，专注于黄金市场研究。
+        system_prompt = """你是一位资深黄金市场分析师，拥有丰富的宏观经济和地缘政治分析经验。
 
-任务: 综合分析新闻的标题和内容摘要，判断其对黄金价格的潜在影响。
+## 核心任务
+分析新闻列表，筛选出与黄金市场相关的新闻，并进行深度影响分析。
 
-分析要点:
-1. 仔细阅读新闻内容，不仅仅看标题
-2. 分析新闻事件对黄金的实际影响逻辑（如利率、美元、避险情绪、通胀等）
-3. 判断情绪倾向: 利多(利好黄金)/利空(利空黄金)/中性(影响有限)
-4. 给出具体的影响原因解释（简洁明了，20-50字）
-5. 如果新闻与黄金无关，标记为中性并说明
+## 相关性判断标准
+【高相关】必须分析:
+- 直接提到黄金/贵金属价格
+- 美联储/央行货币政策（利率、QE、缩表）
+- 通胀数据（CPI、PCE、PPI）
+- 美元走势
+- 地缘政治冲突（战争、制裁、紧张局势）
+- 重大经济数据（非农、GDP、就业）
+- 避险情绪相关事件
 
-输出格式(JSON):
+【中相关】可选分析:
+- 大宗商品市场整体动向
+- 股市大幅波动（可能影响避险情绪）
+- 主要经济体政策变化
+
+【无关】直接跳过:
+- 个股财报（除非涉及金矿公司）
+- 科技公司新闻
+- 体育/娱乐新闻
+- 其他与宏观经济无关的新闻
+
+## 分析要求
+1. **影响链分析**: 事件 → 传导机制 → 对黄金的影响
+   例如: 美联储暗示降息 → 实际利率下降 → 持有黄金机会成本降低 → 利好黄金
+2. **情绪判断**: 利多(推高金价) / 利空(压低金价) / 中性(影响有限)
+3. **原因说明**: 30-60字，解释影响逻辑
+
+## 输出格式(严格JSON)
 {
   "items": [
-    {"headline": "新闻标题", "sentiment": "利多/利空/中性", "reason": "具体影响原因，如：美联储降息预期上升，利好黄金"}
+    {
+      "index": 1,
+      "headline": "新闻标题",
+      "relevance": "高/中",
+      "sentiment": "利多/利空/中性",
+      "reason": "影响链分析，如：美联储购债增加流动性 → 通胀预期上升 → 利好黄金"
+    }
   ],
-  "summary": "整体市场情绪判断（50字以内）"
-}"""
+  "summary": "整体市场情绪判断（30字以内）",
+  "key_factors": ["关键影响因素1", "关键影响因素2"]
+}
 
-        user_prompt = f"""请综合分析以下黄金相关新闻（包括标题和内容）的市场影响:
+注意: 只返回相关新闻，无关新闻直接跳过不要包含在items中。"""
+
+        user_prompt = f"""请分析以下新闻，筛选出与黄金市场相关的内容并进行深度分析:
 
 {news_text}
 
-请基于新闻内容进行专业分析，输出JSON格式:"""
+请输出JSON格式的分析结果（只包含相关新闻）:"""
 
         messages = [
             {"role": "system", "content": system_prompt},
@@ -414,20 +449,22 @@ class LLMClient:
 
         response = await self._call_llm(
             messages=messages,
-            max_tokens=800,
-            temperature=0.5,
+            max_tokens=1200,  # More tokens for detailed analysis
+            temperature=0.3,  # Lower temperature for more consistent output
             call_type=LLMCallType.NEWS_SENTIMENT,
         )
 
         if response:
             try:
                 # Parse JSON response
-                # Extract JSON from response if there's extra text
                 import re
 
+                # Try to extract JSON from response
                 json_match = re.search(r"\{.*\}", response, re.DOTALL)
                 if json_match:
-                    return json.loads(json_match.group())
+                    result = json.loads(json_match.group())
+                    logger.info(f"LLM analyzed news: {len(result.get('items', []))} relevant items found")
+                    return result
                 else:
                     logger.warning("LLM response did not contain valid JSON")
                     return None
@@ -441,6 +478,7 @@ class LLMClient:
         self,
         question: str,
         current_analysis: dict,
+        news_items: list[dict] | None = None,
     ) -> Optional[str]:
         """
         Answer user question using LLM with current analysis context
@@ -448,35 +486,80 @@ class LLMClient:
         Args:
             question: User's question
             current_analysis: Current market analysis context
+            news_items: Optional list of recent news items
 
         Returns:
             Answer text, or None if LLM unavailable
         """
-        system_prompt = """你是一位黄金交易教学助手。
+        system_prompt = """你是一位专业的黄金市场分析师和交易教学助手，拥有丰富的宏观经济和地缘政治知识。
 
-任务: 基于当前市场分析回答用户问题。
+## 你的专业领域
+1. 黄金价格走势分析与预测
+2. 影响黄金的宏观因素（利率、通胀、美元、央行政策）
+3. 地缘政治事件对黄金的影响（战争、冲突、制裁、谈判）
+4. 技术分析与交易策略
+5. 风险管理与仓位控制
 
-要求:
-1. 基于当前分析回答,不要超出分析范围
-2. 面向新手,用通俗语言解释
-3. 如果问题超出范围,礼貌说明无法回答
-4. 使用 Markdown 格式,重点内容加粗
-5. 保持与当前分析的一致性,不冲突"""
+## 回答原则
+1. **主动分析**：即使问题看起来是时事问题，也要主动分析其对黄金市场的潜在影响
+2. **专业深度**：提供有深度的分析，而不是简单拒绝
+3. **结合数据**：结合当前市场分析数据给出具体建议
+4. **风险提示**：在给出观点时，也要提示不确定性和风险
+5. **教学风格**：面向新手，用通俗易懂的语言解释复杂概念
 
-        # Build context
-        context = f"""当前市场分析:
-- 市场状态: {current_analysis.get('market_state', '未知')}
-- 趋势方向: {current_analysis.get('trend_dir', '未知')}
-- 当前价格: {current_analysis.get('current_price', 0)}
-- 交易信号: {current_analysis.get('signal', '未知')}
-- 信号原因: {current_analysis.get('signal_reason', '')}
-- 支撑位: {current_analysis.get('support', '未识别')}
-- 阻力位: {current_analysis.get('resistance', '未识别')}
-- 风险提示: {current_analysis.get('risk_warning', '无')}
-- 仓位建议: {current_analysis.get('position_level', '未知')}
-"""
+## 特别说明
+- 对于地缘政治、央行政策、经济数据等问题，要分析其对黄金的影响逻辑
+- 例如：伊朗谈判 → 中东局势 → 避险情绪 → 黄金价格
+- 不要轻易说"无法回答"，而是展示你的专业分析能力
+- 使用 Markdown 格式，重点内容加粗"""
 
-        user_prompt = f"""{context}\n\n用户问题: {question}\n\n请回答:"""
+        # Build context with market data
+        context_lines = [
+            "## 当前市场数据",
+            f"- **市场状态**: {current_analysis.get('market_state', '未知')}",
+            f"- **趋势方向**: {current_analysis.get('trend_dir', '未知')}",
+            f"- **当前价格**: ${current_analysis.get('current_price', 0):.2f}",
+            f"- **交易信号**: {current_analysis.get('signal', '未知')}",
+            f"- **信号原因**: {current_analysis.get('signal_reason', '')}",
+        ]
+
+        support = current_analysis.get('support')
+        resistance = current_analysis.get('resistance')
+        if support:
+            context_lines.append(f"- **支撑位**: ${support:.2f}")
+        if resistance:
+            context_lines.append(f"- **阻力位**: ${resistance:.2f}")
+
+        context_lines.append(f"- **风险提示**: {current_analysis.get('risk_warning', '无')}")
+        context_lines.append(f"- **仓位建议**: {current_analysis.get('position_level', '未知')}")
+
+        # Add DXY and real rate if available
+        if current_analysis.get('dxy_price'):
+            context_lines.append(f"- **美元指数**: {current_analysis.get('dxy_price'):.2f}")
+        if current_analysis.get('real_rate') is not None:
+            context_lines.append(f"- **实际利率**: {current_analysis.get('real_rate'):.2f}%")
+
+        # Add news context
+        if news_items:
+            context_lines.append("\n## 近期新闻事件")
+            for i, news in enumerate(news_items[:5], 1):
+                title = news.get('title', '')
+                sentiment = news.get('sentiment', '中性')
+                reason = news.get('reason', '')
+                context_lines.append(f"{i}. [{sentiment}] {title}")
+                if reason:
+                    context_lines.append(f"   影响分析: {reason}")
+
+        context = "\n".join(context_lines)
+
+        user_prompt = f"""{context}
+
+---
+
+## 用户问题
+{question}
+
+请基于你的专业知识和上述市场数据，给出深度分析和建议："""
 
         messages = [
             {"role": "system", "content": system_prompt},
@@ -485,7 +568,7 @@ class LLMClient:
 
         return await self._call_llm(
             messages=messages,
-            max_tokens=600,
+            max_tokens=800,
             temperature=0.7,
             call_type=LLMCallType.CHAT,
         )
